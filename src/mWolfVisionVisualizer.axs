@@ -4,6 +4,7 @@ MODULE_NAME='mWolfVisionVisualizer' (
                                     )
 
 (***********************************************************)
+#DEFINE USING_NAV_MODULE_BASE_CALLBACKS
 #DEFINE USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 #DEFINE USING_NAV_MODULE_BASE_PASSTHRU_EVENT_CALLBACK
 #DEFINE USING_NAV_STRING_GATHER_CALLBACK
@@ -101,7 +102,7 @@ DEFINE_MUTUALLY_EXCLUSIVE
 (* EXAMPLE: DEFINE_CALL '<NAME>' (<PARAMETERS>) *)
 
 define_function SendString(char payload[]) {
-    NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_TO, dvPort, payload))
+    NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_TO, dvPort, payload))
     send_string dvPort, "payload"
 }
 
@@ -208,8 +209,12 @@ define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
 }
 
 
-define_function NAVModulePassthruEventCallback(char data[]) {
-    SendString(data)
+define_function NAVModulePassthruEventCallback(_NAVModulePassthruEvent event) {
+    if (event.Device != vdvObject) {
+        return
+    }
+
+    SendString(event.Payload)
 }
 
 
@@ -230,9 +235,10 @@ define_function NAVStringGatherCallback(_NAVStringGatherResult args) {
     switch (bytes[1] band $80) {
         case $80: { powerState.Actual = POWER_STATE_ON }
         case $00: { powerState.Actual = POWER_STATE_OFF }
+        default: { powerState.Actual = POWER_STATE_OFF }
     }
 
-    // NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_PARSING_STRING_FROM, dvPort, data))
+    // NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_PARSING_STRING_FROM, dvPort, data))
 }
 #END_IF
 
@@ -282,10 +288,13 @@ data_event[dvPort] {
 
         CommunicationTimeOut(30)
 
-        NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_FROM, data.device, data.text))
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_FROM, data.device, data.text))
 
         select {
-            active (1): {
+            active(data.text == "$80, $10, $0B"): {
+                powerState.Actual = POWER_STATE_OFF
+            }
+            active (true): {
                 NAVStringGather(module.RxBuffer, "$00, $10, $81, $0B")
             }
         }
@@ -297,7 +306,7 @@ data_event[vdvObject] {
     command:{
         stack_var _NAVSnapiMessage message
 
-        NAVLog(NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM, data.device, data.text))
+        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM, data.device, data.text))
 
         NAVParseSnapiMessage(data.text, message)
 
