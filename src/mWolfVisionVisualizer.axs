@@ -59,6 +59,10 @@ constant long TL_DRIVE      = 1
 constant long TL_IP_CHECK   = 2
 constant long TL_HEARTBEAT  = 3
 
+constant long TL_DRIVE_INTERVAL[] = { 200 }
+constant long TL_IP_CHECK_INTERVAL[] = { 3000 }
+constant long TL_HEARTBEAT_INTERVAL[] = { 20000 }
+
 constant integer GET_POWER    = 1
 
 constant integer POWER_STATE_ON  = 1
@@ -77,10 +81,6 @@ DEFINE_VARIABLE
 
 volatile integer loop
 volatile integer pollSequence = GET_POWER
-
-volatile long driveTick[] = { 200 }
-volatile long ipCheck[] = { 3000 }
-volatile long heartbeat[] = { 20000 }
 
 volatile _NAVStateInteger powerState
 
@@ -203,7 +203,7 @@ define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
         case NAV_MODULE_PROPERTY_EVENT_IP_ADDRESS: {
             module.Device.SocketConnection.Address = event.Args[1]
             module.Device.SocketConnection.Port = IP_PORT
-            NAVTimelineStart(TL_IP_CHECK, ipCheck, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
+            NAVTimelineStart(TL_IP_CHECK, TL_IP_CHECK_INTERVAL, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
         }
     }
 }
@@ -267,7 +267,7 @@ data_event[dvPort] {
             module.Device.SocketConnection.IsConnected = true
         }
 
-        NAVTimelineStart(TL_DRIVE, driveTick, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
+        NAVTimelineStart(TL_DRIVE, TL_DRIVE_INTERVAL, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
     }
     offline: {
         if (data.device.number == 0) {
