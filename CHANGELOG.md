@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.0.0...v1.0.1) (2025-02-16)
+
+### 🚀 Performance
+
+- move timeline arrays to constant ([494f022](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/494f0221b26f7d356ab83833ba6280a9028a5ab8))
+- remove unnecessary logging ([2e7fd05](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/2e7fd05a33e29f0397045d4d75d55d2d61991706))
+
 ## 1.0.0 (2025-01-17)
 
 ### 🌟 Features
