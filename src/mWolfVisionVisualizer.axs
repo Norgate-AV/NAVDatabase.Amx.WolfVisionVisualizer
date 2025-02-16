@@ -237,8 +237,6 @@ define_function NAVStringGatherCallback(_NAVStringGatherResult args) {
         case $00: { powerState.Actual = POWER_STATE_OFF }
         default: { powerState.Actual = POWER_STATE_OFF }
     }
-
-    // NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_PARSING_STRING_FROM, dvPort, data))
 }
 #END_IF
 
@@ -305,8 +303,6 @@ data_event[dvPort] {
 data_event[vdvObject] {
     command:{
         stack_var _NAVSnapiMessage message
-
-        NAVErrorLog(NAV_LOG_LEVEL_DEBUG, NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_COMMAND_FROM, data.device, data.text))
 
         NAVParseSnapiMessage(data.text, message)
 
