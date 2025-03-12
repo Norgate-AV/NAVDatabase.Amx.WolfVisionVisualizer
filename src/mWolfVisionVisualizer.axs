@@ -11,6 +11,8 @@ MODULE_NAME='mWolfVisionVisualizer' (
 #include 'NAVFoundation.ModuleBase.axi'
 #include 'NAVFoundation.SocketUtils.axi'
 #include 'NAVFoundation.StringUtils.axi'
+#include 'NAVFoundation.TimelineUtils.axi'
+#include 'NAVFoundation.ErrorLogUtils.axi'
 
 /*
  _   _                       _          ___     __
@@ -184,9 +186,11 @@ define_function CommunicationTimeOut(integer timeout) {
     cancel_wait 'TimeOut'
 
     module.Device.IsCommunicating = true
+    UpdateFeedback()
 
     wait (timeout * 10) 'TimeOut' {
         module.Device.IsCommunicating = false
+        UpdateFeedback()
     }
 }
 
@@ -195,6 +199,7 @@ define_function Reset() {
     module.Device.SocketConnection.IsConnected = false
     module.Device.IsCommunicating = false
     module.Device.IsInitialized = false
+    UpdateFeedback()
 
     NAVTimelineStop(TL_HEARTBEAT)
     NAVTimelineStop(TL_DRIVE)
@@ -206,7 +211,10 @@ define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
         case NAV_MODULE_PROPERTY_EVENT_IP_ADDRESS: {
             module.Device.SocketConnection.Address = event.Args[1]
             module.Device.SocketConnection.Port = IP_PORT
-            NAVTimelineStart(TL_IP_CHECK, TL_IP_CHECK_INTERVAL, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
+            NAVTimelineStart(TL_IP_CHECK,
+                            TL_IP_CHECK_INTERVAL,
+                            TIMELINE_ABSOLUTE,
+                            TIMELINE_REPEAT)
         }
     }
 }
@@ -240,8 +248,19 @@ define_function NAVStringGatherCallback(_NAVStringGatherResult args) {
         case $00: { powerState.Actual = POWER_STATE_OFF }
         default: { powerState.Actual = POWER_STATE_OFF }
     }
+
+    UpdateFeedback()
 }
 #END_IF
+
+
+define_function UpdateFeedback() {
+    [vdvObject, NAV_IP_CONNECTED]	= (module.Device.SocketConnection.IsConnected)
+    [vdvObject, DEVICE_COMMUNICATING] = (module.Device.IsCommunicating)
+    [vdvObject, DATA_INITIALIZED] = (module.Device.IsInitialized)
+
+    [vdvObject, POWER_FB]    = (powerState.Actual == POWER_STATE_ON)
+}
 
 
 (***********************************************************)
@@ -268,9 +287,13 @@ data_event[dvPort] {
 
         if (data.device.number == 0) {
             module.Device.SocketConnection.IsConnected = true
+            UpdateFeedback()
         }
 
-        NAVTimelineStart(TL_DRIVE, TL_DRIVE_INTERVAL, TIMELINE_ABSOLUTE, TIMELINE_REPEAT)
+        NAVTimelineStart(TL_DRIVE,
+                        TL_DRIVE_INTERVAL,
+                        TIMELINE_ABSOLUTE,
+                        TIMELINE_REPEAT)
     }
     offline: {
         if (data.device.number == 0) {
@@ -286,6 +309,7 @@ data_event[dvPort] {
     string: {
         [vdvObject, DATA_INITIALIZED] = true
         [vdvObject, DEVICE_COMMUNICATING] = true
+        UpdateFeedback()
 
         CommunicationTimeOut(30)
 
@@ -297,6 +321,7 @@ data_event[dvPort] {
         select {
             active(data.text == "$80, $10, $0B"): {
                 powerState.Actual = POWER_STATE_OFF
+                UpdateFeedback()
             }
             active (true): {
                 NAVStringGather(module.RxBuffer, "$00, $10, $81, $0B")
@@ -390,15 +415,6 @@ timeline_event[TL_IP_CHECK] { MaintainIPConnection() }
 
 
 timeline_event[TL_DRIVE] { Drive() }
-
-
-timeline_event[TL_NAV_FEEDBACK] {
-    [vdvObject, NAV_IP_CONNECTED]	= (module.Device.SocketConnection.IsConnected)
-    [vdvObject, DEVICE_COMMUNICATING] = (module.Device.IsCommunicating)
-    [vdvObject, DATA_INITIALIZED] = (module.Device.IsInitialized)
-
-    [vdvObject, POWER_FB]    = (powerState.Actual == POWER_STATE_ON)
-}
 
 
 (***********************************************************)
