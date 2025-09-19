@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.2.0...v1.3.0) (2025-09-19)
+
+### 🌟 Features
+
+- update for NAVFoundation v3+ ([b6484f4](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/b6484f4410deb0d1aa5cd12aa54b8d9e3dec3bfd))
+
 ## [1.2.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.1.0...v1.2.0) (2025-03-12)
 
 ### 🌟 Features
