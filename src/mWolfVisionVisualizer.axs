@@ -81,6 +81,8 @@ DEFINE_TYPE
 (***********************************************************)
 DEFINE_VARIABLE
 
+volatile _NAVModule module
+
 volatile integer loop
 volatile integer pollSequence = GET_POWER
 
@@ -267,6 +269,7 @@ define_function UpdateFeedback() {
 (*                STARTUP CODE GOES BELOW                  *)
 (***********************************************************)
 DEFINE_START {
+    NAVModuleInit(module)
     create_buffer dvPort, module.RxBuffer.Data
 }
 
