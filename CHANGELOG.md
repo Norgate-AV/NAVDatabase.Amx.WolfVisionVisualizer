@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.3.0...v1.4.0) (2026-01-11)
+
+### 🌟 Features
+
+- add exponential backoff for connection retries ([72113e9](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/72113e9089ef5f0b072d15e93b291d09c31b0a5e))
+
 ## [1.3.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.2.0...v1.3.0) (2025-09-19)
 
 ### 🌟 Features
