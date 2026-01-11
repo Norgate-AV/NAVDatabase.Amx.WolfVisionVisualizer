@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.4.0...v1.4.1) (2026-01-11)
+
+### 🐛 Bug Fixes
+
+- bump to NAVFoundation v5.5.1 to fix timeline array issue ([65781f0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/65781f0a5737491454072ff60cacb6e6563534cc))
+
 ## [1.4.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.3.0...v1.4.0) (2026-01-11)
 
 ### 🌟 Features
