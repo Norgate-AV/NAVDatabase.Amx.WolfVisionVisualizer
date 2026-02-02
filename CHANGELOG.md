@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.0](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.4.1...v1.5.0) (2026-02-02)
+
+### 🌟 Features
+
+- migrate to NAVFoundation SocketUtils API ([1a70a87](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/commit/1a70a8727b8d22b0492a8cc76854592d64bb755c))
+
 ## [1.4.1](https://github.com/Norgate-AV/NAVDatabase.Amx.WolfVisionVisualizer/compare/v1.4.0...v1.4.1) (2026-01-11)
 
 ### 🐛 Bug Fixes
