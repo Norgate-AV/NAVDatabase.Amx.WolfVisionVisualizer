@@ -4,17 +4,18 @@ MODULE_NAME='mWolfVisionVisualizer' (
                                     )
 
 (***********************************************************)
+#DEFINE __MODULE_NAME__ 'mWolfVisionVisualizer'
+
 #DEFINE USING_NAV_MODULE_BASE_CALLBACKS
 #DEFINE USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 #DEFINE USING_NAV_MODULE_BASE_PASSTHRU_EVENT_CALLBACK
 #DEFINE USING_NAV_STRING_GATHER_CALLBACK
+#DEFINE USING_NAV_ERRORLOG_EVENT_CALLBACK
 #include 'NAVFoundation.ModuleBase.axi'
 #include 'NAVFoundation.SocketUtils.axi'
 #include 'NAVFoundation.StringUtils.axi'
-#include 'NAVFoundation.TimelineUtils.axi'
 #include 'NAVFoundation.ErrorLogUtils.axi'
-#include 'NAVFoundation.NetUtils.axi'
-#include 'NAVFoundation.Regex.axi'
+#include 'NAVFoundation.CloudLog.axi'
 
 /*
  _   _                       _          ___     __
@@ -59,7 +60,7 @@ DEFINE_CONSTANT
 
 constant integer IP_PORT = 50915
 
-constant long TL_DRIVE      = 1
+constant long TL_DRIVE          = 1
 constant long TL_SOCKET_CHECK   = 2
 
 constant long TL_DRIVE_INTERVAL[] = { 200 }
@@ -105,6 +106,11 @@ DEFINE_MUTUALLY_EXCLUSIVE
 (* EXAMPLE: DEFINE_CALL '<NAME>' (<PARAMETERS>) *)
 
 define_function SendString(char payload[]) {
+    if (NAVIsSocketDevice(dvPort) &&
+        !NAVSocketConnectionIsConnected(module.Device.SocketConnection)) {
+        return
+    }
+
     NAVErrorLog(NAV_LOG_LEVEL_DEBUG,
                 NAVFormatStandardLogMessage(NAV_STANDARD_LOG_MESSAGE_TYPE_STRING_TO,
                                             dvPort,
@@ -171,26 +177,6 @@ define_function Drive() {
 }
 
 
-define_function MaintainSocketConnection() {
-    if (module.Device.SocketConnection.IsConnected) {
-        return
-    }
-
-    if (!length_array(module.Device.SocketConnection.Address)) {
-        return
-    }
-
-    if (module.Device.SocketConnection.Port <= 0) {
-        return
-    }
-
-    NAVClientSocketOpen(module.Device.SocketConnection.Socket,
-                        module.Device.SocketConnection.Address,
-                        module.Device.SocketConnection.Port,
-                        IP_TCP)
-}
-
-
 define_function CommunicationTimeOut(integer timeout) {
     cancel_wait 'TimeOut'
 
@@ -207,7 +193,6 @@ define_function CommunicationTimeOut(integer timeout) {
 define_function Reset() {
     cancel_wait 'TimeOut'
 
-    module.Device.SocketConnection.IsConnected = false
     module.Device.IsCommunicating = false
     module.Device.IsInitialized = false
     UpdateFeedback()
@@ -215,71 +200,38 @@ define_function Reset() {
     NAVTimelineStop(TL_DRIVE)
 }
 
-
-define_function SocketConnectionReset() {
-    NAVTimelineStop(TL_SOCKET_CHECK)
-
-    if (module.Device.SocketConnection.IsConnected) {
-        NAVClientSocketClose(module.Device.SocketConnection.Socket)
-    }
-
-    // Always reset retry count for clean state
-    module.Device.SocketConnection.RetryCount = 0
-    module.Device.SocketConnection.Interval[1] = NAVSocketGetConnectionInterval(module.Device.SocketConnection.RetryCount)
-
-    if (!length_array(module.Device.SocketConnection.Address)) {
-        return
-    }
-
-    NAVTimelineStart(TL_SOCKET_CHECK,
-                     module.Device.SocketConnection.Interval,
-                     TIMELINE_ABSOLUTE,
-                     TIMELINE_REPEAT)
-}
-
-
+#IF_DEFINED USING_NAV_MODULE_BASE_PROPERTY_EVENT_CALLBACK
 define_function NAVModulePropertyEventCallback(_NAVModulePropertyEvent event) {
     switch (event.Name) {
         case NAV_MODULE_PROPERTY_EVENT_IP_ADDRESS: {
-            stack_var _NAVIP ip
             stack_var char address[255]
 
             address = NAVTrimString(event.Args[1])
 
-            // Handle empty address - clear and reset connection
-            if (!length_array(address)) {
-                module.Device.SocketConnection.Address = ''
-                NAVErrorLog(NAV_LOG_LEVEL_INFO,
-                            "'mWolfVisionVisualizer => Clearing IP address'")
-
-                SocketConnectionReset()
+            if (!NAVSocketConnectionSetAddress(module.Device.SocketConnection, address)) {
+                NAVErrorLog(NAV_LOG_LEVEL_ERROR,
+                            "GetLogPrefix(), 'Failed to set IP address: ', address")
                 return
             }
 
-            if (!NAVNetParseIP(address, ip)) {
-                if (NAVRegexTest('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', address)) {
-                    module.Device.SocketConnection.Address = address
-                    NAVErrorLog(NAV_LOG_LEVEL_INFO,
-                                "'mWolfVisionVisualizer => Using hostname: ', address")
-                }
-                else {
-                    module.Device.SocketConnection.Address = ''
-                    NAVErrorLog(NAV_LOG_LEVEL_ERROR,
-                                    "'mWolfVisionVisualizer => Invalid IP address or hostname: ', event.Args[1]")
-                }
-            }
-            else {
-                module.Device.SocketConnection.Address = ip.Address
-                NAVErrorLog(NAV_LOG_LEVEL_INFO,
-                            "'mWolfVisionVisualizer => Using IP address: ', ip.Address")
+            NAVSocketConnectionReset(module.Device.SocketConnection)
+        }
+        case NAV_MODULE_PROPERTY_EVENT_CLOUDLOG_DEVICE: {
+            if (!NAVParseDevice(NAVTrimString(event.Args[1]), module.CloudLogger.Device)) {
+                module.CloudLogger.Initialized = false
+                NAVErrorLog(NAV_LOG_LEVEL_ERROR,
+                            "GetLogPrefix(), 'Invalid Cloudlog device: ', event.Args[1]")
+                return
             }
 
-            SocketConnectionReset()
+            module.CloudLogger.Initialized = true
         }
     }
 }
+#END_IF
 
 
+#IF_DEFINED USING_NAV_MODULE_BASE_PASSTHRU_EVENT_CALLBACK
 define_function NAVModulePassthruEventCallback(_NAVModulePassthruEvent event) {
     if (event.Device != vdvObject) {
         return
@@ -287,6 +239,7 @@ define_function NAVModulePassthruEventCallback(_NAVModulePassthruEvent event) {
 
     SendString(event.Payload)
 }
+#END_IF
 
 
 #IF_DEFINED USING_NAV_STRING_GATHER_CALLBACK
@@ -323,29 +276,23 @@ define_function UpdateFeedback() {
 }
 
 
-define_function HandleSocketError(tdata data) {
-    module.Device.SocketConnection.RetryCount++
-
-    NAVErrorLog(NAV_LOG_LEVEL_ERROR,
-                "'mWolfVisionVisualizer => Socket connection error: ', NAVGetSocketError(type_cast(data.number))")
-    NAVErrorLog(NAV_LOG_LEVEL_WARNING,
-                "'mWolfVisionVisualizer => Socket connection failed (attempt ', itoa(module.Device.SocketConnection.RetryCount), ')'")
-
-    if (module.Device.SocketConnection.RetryCount <= NAV_MAX_SOCKET_CONNECTION_RETRIES) {
-        // Still in base retry phase - timeline already running at base interval
-        NAVErrorLog(NAV_LOG_LEVEL_INFO,
-                    "'mWolfVisionVisualizer => Next retry in ', itoa(module.Device.SocketConnection.Interval[1]), 'ms'")
+#IF_DEFINED USING_NAV_ERRORLOG_EVENT_CALLBACK
+define_function NAVErrorLogEventCallback(long level, char message[]) {
+    if (!module.CloudLogger.Initialized) {
         return
     }
 
-    // Calculate new exponential backoff interval
-    module.Device.SocketConnection.Interval[1] = NAVSocketGetConnectionInterval(module.Device.SocketConnection.RetryCount)
+    if (level > NAV_LOG_LEVEL_INFO) {
+        return
+    }
 
-    NAVErrorLog(NAV_LOG_LEVEL_INFO,
-                "'mWolfVisionVisualizer => Next retry in ', itoa(module.Device.SocketConnection.Interval[1]), 'ms'")
+    NAVCloudLog(module.CloudLogger.Device, level, message)
+}
+#END_IF
 
-    // Restart timeline with new interval
-    NAVTimelineReload(TL_SOCKET_CHECK, module.Device.SocketConnection.Interval)
+
+define_function char[50] GetLogPrefix() {
+    return "__MODULE_NAME__, ' [', NAVDeviceToString(dvPort), '] => '"
 }
 
 
@@ -353,11 +300,19 @@ define_function HandleSocketError(tdata data) {
 (*                STARTUP CODE GOES BELOW                  *)
 (***********************************************************)
 DEFINE_START {
+    stack_var _NAVSocketConnectionOptions socketOptions
+
     NAVModuleInit(module)
     create_buffer dvPort, module.RxBuffer.Data
-    module.Device.SocketConnection.Socket = dvPort.PORT
-    module.Device.SocketConnection.Port = IP_PORT
-    module.Device.SocketConnection.Interval[1] = NAVSocketGetConnectionInterval(module.Device.SocketConnection.RetryCount)
+
+    socketOptions.Device = dvPort
+    socketOptions.Port = IP_PORT
+    socketOptions.TimelineId = TL_SOCKET_CHECK
+
+    if (!NAVSocketConnectionInit(module.Device.SocketConnection, socketOptions)) {
+        NAVErrorLog(NAV_LOG_LEVEL_ERROR,
+                    "GetLogPrefix(), 'Failed to initialize socket connection'")
+    }
 }
 
 (***********************************************************)
@@ -376,13 +331,7 @@ data_event[dvPort] {
         }
 
         if (data.device.number == 0) {
-            module.Device.SocketConnection.IsConnected = true
-
-            // Reset retry count on successful connection
-            module.Device.SocketConnection.RetryCount = 0
-            module.Device.SocketConnection.Interval[1] = NAVSocketGetConnectionInterval(module.Device.SocketConnection.RetryCount)
-            NAVTimelineReload(TL_SOCKET_CHECK, module.Device.SocketConnection.Interval)
-
+            NAVSocketConnectionHandleOnline(module.Device.SocketConnection, data)
             UpdateFeedback()
         }
 
@@ -393,13 +342,13 @@ data_event[dvPort] {
     }
     offline: {
         if (data.device.number == 0) {
-            NAVClientSocketClose(data.device.port)
+            NAVSocketConnectionHandleOffline(module.Device.SocketConnection, data)
             Reset()
         }
     }
     onerror: {
         if (data.device.number == 0) {
-            HandleSocketError(data)
+            NAVSocketConnectionHandleError(module.Device.SocketConnection, data)
             Reset()
         }
     }
@@ -499,19 +448,23 @@ channel_event[vdvObject, 0]{
     }
     off: {
         switch (channel.channel){
-            case ZOOM_OUT:      { SendString("$01, $2F, $01, $00") }
-            case ZOOM_IN:       { SendString("$01, $2F, $01, $00") }
-            case FOCUS_NEAR:    { SendString("$01, $2F, $01, $00") }
+            case ZOOM_OUT:
+            case ZOOM_IN:
+            case FOCUS_NEAR:
             case FOCUS_FAR:     { SendString("$01, $2F, $01, $00") }
         }
     }
 }
 
 
-timeline_event[TL_SOCKET_CHECK] { MaintainSocketConnection() }
+timeline_event[TL_SOCKET_CHECK] {
+    NAVSocketConnectionMaintain(module.Device.SocketConnection)
+}
 
 
-timeline_event[TL_DRIVE] { Drive() }
+timeline_event[TL_DRIVE] {
+    Drive()
+}
 
 
 (***********************************************************)
